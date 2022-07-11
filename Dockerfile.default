@@ -40,7 +40,10 @@ ENV CUDNN_MAJOR_VERSION={{ data.gpu.cudnn_major_version }}
 RUN apt-key adv --fetch-keys {{ data.gpu.nvidia_gpg_url }}\
     && apt-get -y update
 {% endif %}
-# TODO: Install gsutil and OTB
+
+# Install Google Cloud SDK
+RUN echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] http://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | tee /usr/share/keyrings/cloud.google.gpg && apt-get update -y && apt-get install google-cloud-sdk -y
+
 {% if data.install_packages -%}
 RUN apt-get update && apt-get install -y --no-install-recommends \
    {{ data.install_packages }}
