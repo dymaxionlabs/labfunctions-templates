@@ -54,6 +54,7 @@ RUN wget -q https://www.orfeo-toolbox.org/packages/$OTB_PACKAGE_NAME.run \
   && /opt/$OTB_PACKAGE_NAME.run \
   && rm -f /opt/$OTB_PACKAGE_NAME.run \
   && ln -s /opt/$OTB_PACKAGE_NAME /opt/OTB
+ENV OTBENV_PROFILE_PATH=/opt/OTB/otbenv.profile
 
 {% if data.runtime_packages -%}
 RUN apt-get update && apt-get install -y --no-install-recommends \
