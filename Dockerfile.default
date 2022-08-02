@@ -29,20 +29,16 @@ RUN apt-get update -y && apt-get install -y --no-install-recommends \
 RUN  pip install --user -r /tmp/requirements.txt
 {% endif -%}
 
-# Install Google Cloud SDK
-RUN echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] http://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | tee /usr/share/keyrings/cloud.google.gpg && apt-get update -y && apt-get install google-cloud-sdk -y
-
 # Install Orfeo Toolbox
 ARG otb_version=8.0.1
 ENV OTB_PACKAGE_NAME=OTB-${otb_version}-Linux64
-RUN wget -q https://www.orfeo-toolbox.org/packages/$OTB_PACKAGE_NAME.run \
+RUN apt-get install -y --no-install-recommends wget file \
+  && wget -q https://www.orfeo-toolbox.org/packages/$OTB_PACKAGE_NAME.run \
   && chmod +x ./$OTB_PACKAGE_NAME.run \
   && mv ./$OTB_PACKAGE_NAME.run /opt/ \
   && cd /opt/ \
   && /opt/$OTB_PACKAGE_NAME.run \
-  && rm -f /opt/$OTB_PACKAGE_NAME.run \
-  && ln -s /opt/$OTB_PACKAGE_NAME /opt/OTB
-ENV OTBENV_PROFILE_PATH=/opt/OTB/otbenv.profile
+  && rm -f /opt/$OTB_PACKAGE_NAME.run
 
 # Final image
 FROM {{ data.image }} as app
@@ -59,11 +55,18 @@ RUN apt-key adv --fetch-keys {{ data.gpu.nvidia_gpg_url }}\
 
 {% if data.runtime_packages -%}
 RUN apt-get update && apt-get install -y --no-install-recommends \
-   {{ data.runtime_packages }}
+   {{ data.runtime_packages }} \
+   && rm -rf /var/lib/apt/lists/*
 {% endif %}
 
-# Copy OTB from builder
-COPY --from=builder --chown=app:app /opt/OTB* /opt/
+# Install Google Cloud SDK
+RUN echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] http://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | tee /usr/share/keyrings/cloud.google.gpg && apt-get update -y && apt-get install google-cloud-sdk -y && rm -rf /var/lib/apt/lists/*
+
+# Import Orfeo Toolbox and configure profile env var
+ARG otb_version=8.0.1
+ENV OTB_PACKAGE_NAME=OTB-${otb_version}-Linux64
+ENV OTBENV_PROFILE_PATH=/opt/$OTB_PACKAGE_NAME/otbenv.profile
+COPY --from=builder --chown=app:app /opt/$OTB_PACKAGE_NAME /opt/$OTB_PACKAGE_NAME
 
 COPY --from=builder --chown=app:app /root/.local /home/app/.local/
 COPY --chown=app:app . /app
