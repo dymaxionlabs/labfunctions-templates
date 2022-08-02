@@ -28,18 +28,6 @@ RUN apt-get update -y && apt-get install -y --no-install-recommends \
 {% else -%}
 RUN  pip install --user -r /tmp/requirements.txt
 {% endif -%}
-# Final image
-FROM {{ data.image }} as app
-USER root
-SHELL ["/bin/bash", "-c"]
-ENV DEBIAN_FRONTEND=noninteractive
-{% if data.gpu %}
-ENV CUDA={{ data.gpu.cuda }}
-ENV CUDNN={{ data.gpu.cudnn }}
-ENV CUDNN_MAJOR_VERSION={{ data.gpu.cudnn_major_version }}
-RUN apt-key adv --fetch-keys {{ data.gpu.nvidia_gpg_url }}\
-    && apt-get -y update
-{% endif %}
 
 # Install Google Cloud SDK
 RUN echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] http://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | tee /usr/share/keyrings/cloud.google.gpg && apt-get update -y && apt-get install google-cloud-sdk -y
@@ -56,10 +44,27 @@ RUN wget -q https://www.orfeo-toolbox.org/packages/$OTB_PACKAGE_NAME.run \
   && ln -s /opt/$OTB_PACKAGE_NAME /opt/OTB
 ENV OTBENV_PROFILE_PATH=/opt/OTB/otbenv.profile
 
+# Final image
+FROM {{ data.image }} as app
+USER root
+SHELL ["/bin/bash", "-c"]
+ENV DEBIAN_FRONTEND=noninteractive
+{% if data.gpu %}
+ENV CUDA={{ data.gpu.cuda }}
+ENV CUDNN={{ data.gpu.cudnn }}
+ENV CUDNN_MAJOR_VERSION={{ data.gpu.cudnn_major_version }}
+RUN apt-key adv --fetch-keys {{ data.gpu.nvidia_gpg_url }}\
+    && apt-get -y update
+{% endif %}
+
 {% if data.runtime_packages -%}
 RUN apt-get update && apt-get install -y --no-install-recommends \
    {{ data.runtime_packages }}
 {% endif %}
+
+# Copy OTB from builder
+COPY --from=builder --chown=app:app /opt/OTB* /opt/
+
 COPY --from=builder --chown=app:app /root/.local /home/app/.local/
 COPY --chown=app:app . /app
 USER app
